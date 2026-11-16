@@ -51,6 +51,16 @@ def read_pad():
 
 init_i2c()
 
+# Pimoroni firmware may ship a qwstpad driver (pimoroni-pico has one). Probe for it.
+qwstpad = None
+pad = None
+try:
+    import qwstpad
+    if i2c is not None and pad_addr is not None:
+        pad = qwstpad.QwSTPad(i2c, pad_addr)
+except Exception as e:
+    err = "qwstpad: " + str(e)
+
 
 def draw_cube(t, cx, cy, size):
     ca, sa = math.cos(t), math.sin(t)
@@ -91,6 +101,13 @@ def update():
             screen.text("diff %s" % "{:016b}".format(diff), 2, 62)
         except Exception as e:
             err = "pad: " + str(e)
+    screen.text("qwstpad mod: %s" % ("yes" if qwstpad else "no"), 2, 74)
+    if pad is not None:
+        try:
+            btns = pad.read_buttons()  # expected: dict like {'A': True, ...}
+            screen.text("drv %s" % [k for k in btns if btns[k]], 2, 86)
+        except Exception as e:
+            err = "drv: " + str(e)
     if err:
         screen.text(err, 2, h - 14)
 
