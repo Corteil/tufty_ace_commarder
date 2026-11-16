@@ -92,8 +92,30 @@ class _Screen:
         self._clipped(lambda d: d.line(p, fill=self._rgb(), width=1))
         self.calls += 1
 
-    def text(self, message, x, y, size=None):  # size ignored in this stand-in
-        self._clipped(lambda d: d.text((round(x), round(y)), str(message), fill=self._rgb(), font=self._font))
+    def measure_text(self, message, size=None):   # documented: returns (width, height) for the current font
+        l, t, r, b = self._font.getbbox(str(message))
+        return (r - l, 10)                         # ASSUMED native pixel-font height of 10
+
+    def text(self, message, x, y, size=None):     # x, y = top-left (documented); size = integer scale (pixel fonts)
+        k = max(1, int(size or 1))
+        w, h = self.measure_text(message)
+        tmp = Image.new("L", (max(1, w), h), 0)
+        ImageDraw.Draw(tmp).text((0, 0), str(message), fill=255, font=self._font)
+        if k > 1:
+            tmp = tmp.resize((tmp.width * k, tmp.height * k), Image.NEAREST)
+        x, y = round(x), round(y)
+        col = self._rgb()
+
+        def draw(d):
+            self_img = d._image
+            self_img.paste(Image.new("RGB", tmp.size, col), (x, y), tmp)
+        self._clipped(draw)
+        self.calls += 1
+        return rect(x, y, tmp.width, tmp.height)
+
+    def triangle(self, x0, y0, x1, y1, x2, y2):   # ASSUMED signature; docs name triangle as a raster primitive
+        pts = [(round(x0), round(y0)), (round(x1), round(y1)), (round(x2), round(y2))]
+        self._clipped(lambda d: d.polygon(pts, fill=self._rgb()))
         self.calls += 1
 
     def shape(self, s):                       # shape.line(...) etc. Vector path, slower on real hardware
