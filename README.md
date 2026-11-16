@@ -17,3 +17,6 @@ Double-tap RESET, open the TUFTY drive, copy `apps/ace_test` into `/apps`, eject
 - Qw/ST I2C pins and whether the OS already owns the bus (assumed GP4/GP5, I2C0)
 - Pad button-to-bit mapping (use the `diff` row)
 - Whether the launcher calls `update()` or runs `__init__.py` as a loop (`LOOP_MODE`)
+
+## Tests
+`python tests/run_all.py` (PC only; Pillow needed). `python tools/build_app.py` builds `build/ace_commander/`.
