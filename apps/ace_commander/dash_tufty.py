@@ -33,9 +33,9 @@ STICK = 12               # tallest blip stalk, pixels
 LEFT = (-157, -141, 48)
 RIGHT = (94, 110, 48)
 ROW0, ROW_STEP, BAR_H = -20, 12, 7
-COMPASS_X, COMPASS_Y, COMPASS_R = 78, 4, 9
+COMPASS_X, COMPASS_Y, COMPASS_R = 78, -12, 9      # top of the column right of the scanner
 MISSILE_X, MISSILE_Y, MISSILE_STEP = -80, -16, 9      # a column of four lamps, between the left bars and the scanner
-S_X, S_Y = 78, -19                                      # the S lamp (safe zone), above the compass
+S_X, S_Y = 78, 17                                       # the S lamp (safe zone), below the compass
 
 PANEL = (0.04, 0.04, 0.07)
 RULE = (0.38, 0.38, 0.48)
