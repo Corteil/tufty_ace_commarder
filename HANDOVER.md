@@ -66,6 +66,15 @@ Brian's Pi setup was not recorded in this repo; check rather than assume.
 4. Commit small and often; keep `python tests/run_all.py` green.
 5. Only when Brian asks: the EMF refactor path in PLAN.md (applies the same patches to `ace_commander`).
 
+## Hardcore Mode (Brian's plan PDF, 2026-11-16)
+Brian approved a feature branch `hardcore-mode` on `Corteil/ace_commander` (pushed, not merged; main untouched).
+First slice there: platform-free `rules.py`, manual ECM, armed missiles, HARDCORE setting, tests. Details in that
+branch's CLAUDE.md. This repo's `vendor/` is still the main snapshot (22db6ef); do **not** sync from the branch
+until it is merged. When it is, `tools/sync_from_ace.py` brings `rules.py` in; the Tufty host already sends
+keyboard keys through the game's `k_*` names. Keyboard plan: the Keebdeck Basic needs I2C firmware flashed on
+the keyboard itself (BBQ10-style key FIFO, address 0x1F by default); a `kbd_bbq10` driver + sim fake + tests
+would live here, and may be shared with the EMF Keyboard Hexpansion if its protocol matches (unchecked).
+
 ## Open design items (optional, ask first)
 - Lock indicator on the missile lamps; a fourth row on the dashboard's right side.
 - Keebdeck Basic keypad support; 320-wide layouts for docked/chart screens; FOCAL for the wider view.
