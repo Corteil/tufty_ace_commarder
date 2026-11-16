@@ -6,7 +6,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 failed = []
-for name in ("test_sim.py", "test_ctx_shim.py", "test_patch_identity.py", "test_view_rect.py"):
+for name in ("test_sim.py", "test_ctx_shim.py", "test_patch_identity.py", "test_view_rect.py", "test_dashboard.py"):
     r = subprocess.run([sys.executable, os.path.join(HERE, name)], capture_output=True, text=True)
     last = [l for l in r.stdout.strip().split("\n") if l and not l.startswith("PERF")]
     print("%-24s %s" % (name, "ok" if r.returncode == 0 else "FAILED"), "-", last[-1] if last else "")

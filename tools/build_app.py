@@ -26,6 +26,10 @@ def build(dest=DEST, patches=PATCHES):
     for name in sorted(os.listdir(SRC)):
         if name.endswith(".py") and os.path.isfile(os.path.join(SRC, name)):
             shutil.copy2(os.path.join(SRC, name), os.path.join(dest, name))
+    tufty = os.path.join(REPO, "apps", "ace_commander")      # Tufty-only modules join the package
+    for name in sorted(os.listdir(tufty)):
+        if name.endswith(".py") and name != "__init__.py":
+            shutil.copy2(os.path.join(tufty, name), os.path.join(dest, name))
     for name, old, new, count in patches:
         path = os.path.join(dest, name)
         text = open(path).read()
