@@ -40,5 +40,20 @@ assert lit(0, 0, 320, 180) > 150, "view empty"
 assert lit(0, 180, 320, 240) > 300, "dashboard empty"
 # nothing from the view spills into the dashboard strip's top rule row and vice versa
 assert img.getpixel((5, 179))[:3] != img.getpixel((5, 181))[:3] or True
+# AL: one gauge, planet or sun
+import types
+def fake(pd, cabin=30, sd=1e9, pr=100.0, sr=300.0, witch=False):
+    sp = types.SimpleNamespace(px=0.0, py=0.0, pz=pd, pr=pr, sx=0.0, sy=0.0, sz=sd, sr=sr, witch=witch)
+    return types.SimpleNamespace(space=sp, cabin=cabin)
+from ace_commander import cockpit as ck
+f, rgb = dash_tufty.altitude(fake(300.0, cabin=ck.COOL_CABIN))           # 2 radii above the surface
+assert abs(f - 1.0) < 1e-9 and rgb == ck.CYAN, (f, rgb)
+f, rgb = dash_tufty.altitude(fake(150.0, cabin=ck.COOL_CABIN))           # half a radius up: 0.25
+assert abs(f - 0.25) < 1e-9 and rgb == ck.CYAN, f
+assert dash_tufty.altitude(fake(90.0, cabin=ck.COOL_CABIN))[0] == 0.0     # inside the planet: empty
+f, rgb = dash_tufty.altitude(fake(1e9, cabin=ck.COOL_CABIN + 50, sd=300.0 + 300.0 * ck.SUN_GAUGE_ALT * 0.5))
+assert rgb == ck.ORANGE and abs(f - 0.5) < 1e-6, (f, rgb)                # warming: height above the sun
+assert dash_tufty.altitude(types.SimpleNamespace(space=None, cabin=30)) == (0.0, ck.DIM)
+assert dash_tufty.altitude(fake(300.0, witch=True))[1] == ck.DIM
 print("flight frame 320x240 written; view %d lit, dashboard %d lit" % (lit(0, 0, 320, 180), lit(0, 180, 320, 240)))
 print("ALL DASHBOARD TESTS PASSED")

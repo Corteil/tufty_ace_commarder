@@ -5,9 +5,10 @@
     |        3D view  320 x 180            |   crosshair, messages, game over, wave/score
     |                                      |
     +--------------------------------------+
-    | SH ====   [2x2]  .--scanner--.  O  SP ====|   dashboard 320 x 60: three bars each side,
-    | EN ====   missiles  '-------'  compass LT ====|   missiles, elliptical scanner, compass
-    | FU ====                              CT ====|
+    | SH ====   [2x2]  .--scanner--.  O  SP ====|   dashboard 320 x 60: bars either side
+    | EN ====   missiles  '-------'  compass CT ====|   (SH EN FU LT | SP CT AL), missiles,
+    | FU ====                              AL ====|   elliptical scanner, compass
+    | LT ====                                     |
     +--------------------------------------+
 
 The scanner is the radar; hostile ships are red, as in the EMF build. Everything is drawn through
@@ -31,7 +32,7 @@ STICK = 12               # tallest blip stalk, pixels
 # gauges: three bars either side. label x, bar x, bar width, first row y, row step, bar height
 LEFT = (-157, -141, 48)
 RIGHT = (94, 110, 48)
-ROW0, ROW_STEP, BAR_H = -17, 13, 8
+ROW0, ROW_STEP, BAR_H = -20, 12, 7
 COMPASS_X, COMPASS_Y, COMPASS_R = 78, 4, 9
 MISSILE_X, MISSILE_Y = -84, -7
 
@@ -127,6 +128,26 @@ def _compass(ctx, sp):
         ctx.rgb(rgb[0] * 0.4, rgb[1] * 0.4, rgb[2] * 0.4).rectangle(dx - 1, dy - 1, 2, 2).fill()
 
 
+ALT_FULL = 2.0           # AL is full this many planet radii above the surface (the safe zone's size)
+
+
+def altitude(g):
+    """(fraction 0..1, colour) for the AL gauge. One gauge, two dangers: height above the planet
+    (cyan; full at ALT_FULL radii, empty on the surface) and, while the cabin is warming near a
+    sun, height above the sun (orange; full where the cabin starts to warm, as cockpit used to
+    show it). Combat practice and witchspace have nothing to measure: an empty dim bar."""
+    sp = g.space
+    if sp is None or sp.witch:
+        return 0.0, ck.DIM
+    if g.cabin > ck.COOL_CABIN:
+        d = math.sqrt(sp.sx * sp.sx + sp.sy * sp.sy + sp.sz * sp.sz) - sp.sr
+        f, rgb = d / (ck.SUN_GAUGE_ALT * sp.sr), ck.ORANGE
+    else:
+        d = math.sqrt(sp.px * sp.px + sp.py * sp.py + sp.pz * sp.pz) - sp.pr
+        f, rgb = d / (ALT_FULL * sp.pr), ck.CYAN
+    return (0.0 if f < 0 else 1.0 if f > 1 else f), rgb
+
+
 def draw_dashboard(ctx, g):
     """ctx origin at the dashboard's centre; the dashboard fills 320 x 60 about it."""
     ctx.rgb(*PANEL).rectangle(-SCREEN_W // 2, -DASH_H // 2, SCREEN_W, DASH_H).fill()
@@ -135,32 +156,19 @@ def draw_dashboard(ctx, g):
     _bar(ctx, LEFT, 1, "EN", g.hull / 100.0, ck.GREEN if g.hull > 30 else ck.RED)
     fuel = g.fuel / ck.MAX_FUEL if g.fuel is not None else 0
     _bar(ctx, LEFT, 2, "FU", fuel, ck.RED if fuel < 0.25 else ck.GREEN)
+    _bar(ctx, LEFT, 3, "LT", g.heat, ck.RED if g.hot else ck.YELLOW)
     _bar(ctx, RIGHT, 0, "SP", g.speed / 40.0, ck.CYAN if g.jumping else ck.GREEN)
-    _bar(ctx, RIGHT, 1, "LT", g.heat, ck.RED if g.hot else ck.YELLOW)
-    _bar(ctx, RIGHT, 2, "CT", (g.cabin - ck.COOL_CABIN) / (255.0 - ck.COOL_CABIN), ck.ct_colour(g.cabin))
+    _bar(ctx, RIGHT, 1, "CT", (g.cabin - ck.COOL_CABIN) / (255.0 - ck.COOL_CABIN), ck.ct_colour(g.cabin))
+    frac, rgb = altitude(g)
+    _bar(ctx, RIGHT, 2, "AL", frac, rgb)
     for i in range(4):               # missiles, 2 x 2
         ctx.rgb(*(ck.GREEN if i < g.missiles else ck.DIM))
         ctx.rectangle(MISSILE_X + (i % 2) * 8, MISSILE_Y + (i // 2) * 8, 6, 6).fill()
     _scanner(ctx, g)
 
 
-def _sun_gauges(ctx, g, sp):
-    """CT and AL across the top of the view, as cockpit._sun_gauges but inside the 180 high view."""
-    top = -ck.VIEW_HH + 4
-    ctx.rgba(0, 0, 0, 0.6).rectangle(-74, top, 148, 17).fill()
-    ck.text(ctx, "CT", -66, top + 7, 9, ck.GREY)
-    ck.text(ctx, "AL", 66, top + 7, 9, ck.GREY)
-    ctx.rgb(*ck.DIM).rectangle(-58, top + 5, 50, 4).fill()
-    ctx.rgb(*ck.DIM).rectangle(8, top + 5, 50, 4).fill()
-    t = (g.cabin - ck.COOL_CABIN) * 50 // (255 - ck.COOL_CABIN)
-    ctx.rgb(*ck.ct_colour(g.cabin)).rectangle(-58, top + 5, t, 4).fill()
-    d = math.sqrt(sp.sx * sp.sx + sp.sy * sp.sy + sp.sz * sp.sz) - sp.sr
-    a = int(50 * d / (ck.SUN_GAUGE_ALT * sp.sr))
-    ctx.rgb(*ck.CYAN).rectangle(8, top + 5, 0 if a < 0 else 50 if a > 50 else a, 4).fill()
-
-
 def draw_view_overlay(ctx, g, ms=None):
-    """ctx origin at the view's centre (the view is 320 x 180): crosshair, sun gauges, combat
+    """ctx origin at the view's centre (the view is 320 x 180): crosshair, combat
     wave/score, messages, game over, energy bomb flash."""
     hh = ck.VIEW_HH
     if not getattr(g, "autodock", False):
@@ -170,8 +178,6 @@ def draw_view_overlay(ctx, g, ms=None):
         ctx.rectangle(-0.75, 6, 1.5, 8).fill()
         ctx.rectangle(-0.75, -14, 1.5, 8).fill()
     sp = g.space
-    if sp is not None and g.cabin > ck.COOL_CABIN:
-        _sun_gauges(ctx, g, sp)
     if sp is None:                   # combat practice: wave (yellow) and score (white)
         wave, score = str(g.wave), str(g.score)
         width = (len(wave) + len(score)) * 10 - 6 + 9
