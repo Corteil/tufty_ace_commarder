@@ -1,7 +1,12 @@
 # Plan: Ace Commander on Tufty 2350 (and the later EMF badge update)
 
-Status: draft 1, 2026-11-16. No Tufty or Pad in hand yet, so everything up to gate G1 is built and checked on a PC.
+Status: P0 done 2026-11-16 (see Progress). Draft 1 written the same day. No Tufty or Pad in hand yet, so everything up to gate G1 is built and checked on a PC.
 Rule: **nothing in `Corteil/ace_commander` (EMF build) changes until Brian gives the go-ahead.** It is only read.
+
+## Progress
+- **P0 done.** `tools/sync_from_ace.py` + `vendor/ace_commander/` (pinned in `vendor/UPSTREAM`, 57 tracked files, no Elite data). `sim/badgeware.py` is a PC fake of the documented Badgeware API; `tests/test_sim.py` checks it. `apps/ace_test` runs on the sim.
+- **Baseline of the vendored upstream suite without Elite data: 9 of 18 test files pass, 9 fail**, identical to running it in the upstream clone. The failures all need `ship_data.py`/`game_data.py` or Elite names (e.g. start system LAVE, Cobra Mk III), so they can only be run where Brian has generated that data. The 9 passing ones are the equipment effects, traffic, witchspace, loader, original ships, original data, install, bench and run tests.
+- **API finding that changes P1:** Badgeware's `screen` has raster `line(x0,y0,x1,y1)`, `rectangle(x,y,w,h)`, `circle(x,y,r)` (ints, rounded, not antialiased), a `clip` rectangle and `window()`. The ctx shim should use `screen.line` (not `shape.line`) and `clip` for the 3D view. Not yet confirmed on hardware: whether `circle` is filled, and the line speed.
 
 ## What exists (read from ace_commander, build ~56)
 - About 8,000 lines of game plus 6,000 of tests. Full game: title, commander and saves, galaxy, charts, market, equipment, docking, missions, witchspace.
@@ -52,7 +57,7 @@ Platform contract (what each host must provide): `Display` (the ctx subset), `In
 Done when: the upstream tests pass on a PC inside this repo.
 
 ### P1 - Playable on the sim, in the Elite layout (needs only code)
-1. `ctx_badgeware.py`: implements the ~20 ctx calls on `screen` (path calls collected and drawn as `shape.line`; rectangle/fill; text; arc), with a settable origin and clip rectangle.
+1. `ctx_badgeware.py`: implements the ~20 ctx calls on `screen`: path segments drawn with raster `screen.line`, rectangles with `screen.rectangle`, arcs with `screen.circle` or line segments, text with `screen.text`; settable origin and the `clip` rectangle for the view. Thick lines (ctx.line_width > 1) need a plan: several offset raster lines, or `shape.line` for those only.
 2. **View rectangle.** Parameterise `cockpit.py`: the world is drawn into a view of `VW x VH` centred at `(VX, VY)` instead of the fixed 240x240 centred on 0,0 (about 15 hard-coded 120/240 sites: culling, dust, explosions, tunnel, flash fills).
 3. **New dashboard** (`dash_tufty.py`) replaces `draw_hud` on Tufty: scanner under the view, gauges either side. Built from rectangles and a few lines (rectangles are the cheap call), whole-number maths.
 4. `platform_tufty.py`: logical actions from Tufty buttons + Pad; LEDs mapped to case lights and Pad LEDs.
@@ -98,6 +103,6 @@ Goal: both badges built from one set of game files. Changes to `Corteil/ace_comm
 - The app hook (`update()` vs loop) is undocumented in the pages read.
 
 ## Next actions
-1. P0 steps 1-2 (sync script, sim).
-2. P1 shim and host, tested on the sim.
+1. P1 shim and host, tested on the sim (render the same scene through upstream's Pillow ctx and through the shim, and compare).
+2. Dashboard (scanner and gauges) for the Elite layout.
 3. Wait for hardware, then G1.

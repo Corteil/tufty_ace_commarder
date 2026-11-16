@@ -8,6 +8,9 @@ import time
 # Set True if the launcher does not call update() for you and nothing runs.
 LOOP_MODE = False
 
+# Press Tufty button A to switch between screen.line (raster) and shape.line (vector).
+use_raster = True
+
 # Qw/ST pins: ASSUMED GP4 (SDA) / GP5 (SCL) on I2C0 - verify on first run.
 I2C_ID, SDA_PIN, SCL_PIN = 0, 4, 5
 TCA_REG_INPUT0 = 0x00  # TCA9555 input port 0 (port 1 follows)
@@ -72,8 +75,12 @@ def draw_cube(t, cx, cy, size):
         k = size / (3.5 - z)
         pts.append((cx + x * k, cy + y * k))
     screen.pen = color.white
-    for a, b in EDGES:
-        screen.shape(shape.line(pts[a][0], pts[a][1], pts[b][0], pts[b][1], 1))
+    if use_raster:
+        for a, b in EDGES:                     # raster line: ints, not antialiased (documented as fast)
+            screen.line(pts[a][0], pts[a][1], pts[b][0], pts[b][1])
+    else:
+        for a, b in EDGES:                     # vector line: sub-pixel, slower
+            screen.shape(shape.line(pts[a][0], pts[a][1], pts[b][0], pts[b][1], 1))
 
 
 def update():
@@ -111,6 +118,10 @@ def update():
     if err:
         screen.text(err, 2, h - 14)
 
+    global use_raster
+    if badge.pressed(BUTTON_A):
+        use_raster = not use_raster
+    screen.text("line: %s (A toggles)" % ("raster" if use_raster else "vector"), 2, 98)
     pressed = badge.held()
     if pressed:
         screen.text("held %s" % pressed, 2, h - 26)
