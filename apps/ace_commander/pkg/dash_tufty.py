@@ -35,7 +35,9 @@ RIGHT = (94, 110, 48)
 ROW0, ROW_STEP, BAR_H = -20, 12, 7
 COMPASS_X, COMPASS_Y, COMPASS_R = 78, -12, 9      # top of the column right of the scanner
 MISSILE_X, MISSILE_Y, MISSILE_STEP = -80, -16, 9      # a column of four lamps, between the left bars and the scanner
-S_X, S_Y = 78, 17                                       # the S lamp (safe zone), below the compass
+S_X, S_Y = 70, 17                                       # the S lamp (safe zone), below the compass
+E_X, E_Y = 86, 17                                       # the E lamp (ECM firing), beside it
+ECM_RGB = (0.63, 0.0, 1.0)                              # violet, as the ECM's LED flash
 
 PANEL = (0.04, 0.04, 0.07)
 RULE = (0.38, 0.38, 0.48)
@@ -175,6 +177,7 @@ def draw_dashboard(ctx, g):
         ctx.rectangle(MISSILE_X, MISSILE_Y + i * MISSILE_STEP, 6, 6).fill()
     sp = g.space
     _lamp(ctx, S_X, S_Y, "S", sp is not None and sp.safe, ck.GREEN)
+    _lamp(ctx, E_X, E_Y, "E", g.ecm_t > 0, ECM_RGB)
     _scanner(ctx, g)
 
 
@@ -220,20 +223,89 @@ def draw_view_overlay(ctx, g, ms=None):
         ck.text(ctx, g.msg, 0, -hh + 33, 14, ck.YELLOW)
 
 
+# ---- the badge's LED ring, shown as a border round the 3D view -----------------------------
+# Upstream drives 12 ring LEDs (numbered 1-12). Tufty has no ring, so the same 12 values are
+# painted as 12 sectors of a thin frame inside the view's edge. LED_ANGLE1 / LED_CLOCKWISE are
+# ace.py's: LED 1 is 70 degrees anticlockwise from 3 o'clock and the numbers go clockwise, so a
+# jump flash lights the side of the border where its streaks leave the screen.
+BORDER = 3
+LED_ANGLE1 = 70.0
+LED_CLOCKWISE = True
+BORDER_STEP = 4
+
+
+def _led_at(x, y):
+    a = math.atan2(-y, x) * 57.29578
+    step = (LED_ANGLE1 - a) if LED_CLOCKWISE else (a - LED_ANGLE1)
+    return int(math.floor(step / 30.0 + 0.5)) % 12 + 1
+
+
+def border_runs(hw=VIEW_W // 2, hh=VIEW_H // 2, t=BORDER, step=BORDER_STEP):
+    """[(led 1-12, x, y, w, h)] rectangles about the view's centre; neighbours of one LED merged."""
+    runs = []
+
+    def side(horizontal, fixed, length, lo, hi):
+        pos, last = lo, None
+        while pos < hi:
+            n = min(step, hi - pos)
+            c = pos + n / 2.0
+            led = _led_at(c, fixed) if horizontal else _led_at(fixed, c)
+            if last is not None and last[0] == led:
+                runs[-1] = (led,) + ((last[1], last[2], last[3] + n, last[4]) if horizontal
+                                     else (last[1], last[2], last[3], last[4] + n))
+                last = runs[-1]
+            else:
+                x, y, w, h = (pos, fixed - length / 2.0, n, length) if horizontal else (fixed - length / 2.0, pos, length, n)
+                runs.append((led, x, y, w, h))
+                last = runs[-1]
+            pos += n
+
+    side(True, -hh + t / 2.0, t, -hw, hw)           # top
+    side(True, hh - t / 2.0, t, -hw, hw)            # bottom
+    side(False, -hw + t / 2.0, t, -hh + t, hh - t)  # left
+    side(False, hw - t / 2.0, t, -hh + t, hh - t)   # right
+    return runs
+
+
+_BORDER = border_runs()
+
+
+def draw_led_border(ctx, ring):
+    """ctx origin at the view's centre; ring: 12 (r, g, b) tuples, 0-255, LED 1 first."""
+    for led, x, y, w, h in _BORDER:
+        r, g, b = ring[led - 1]
+        if r or g or b:
+            ctx.rgb(r / 255.0, g / 255.0, b / 255.0).rectangle(x, y, w, h).fill()
+
+
 class FlightFrame:
     """Draws one flight frame on a Badgeware `screen`: view on top, dashboard below."""
 
-    def __init__(self, screen, color, shape, rect, ctx_class):
-        self.screen, self.rect = screen, rect
+    def __init__(self, screen, color, shape, rect, ctx_class, ring=None):
+        self.screen, self.rect, self.ring = screen, rect, ring      # ring: callable -> 12 LED colours
+        self.draw_world = ck.draw_world     # kept now: the host may replace ck.draw_world by a hook that calls us
         self.view = ctx_class(screen, color, shape, ox=SCREEN_W // 2, oy=VIEW_H // 2)
         self.dash = ctx_class(screen, color, shape, ox=SCREEN_W // 2, oy=VIEW_H + DASH_H // 2)
         ck.VIEW_HW, ck.VIEW_HH = VIEW_W // 2, VIEW_H // 2
 
-    def draw(self, g, ms=None):
+    def world(self, g):
+        """The 3D view (clipped to its rectangle)."""
         s = self.screen
         s.clip = self.rect(0, 0, VIEW_W, VIEW_H)
-        ck.draw_world(self.view, g)
+        ck.VIEW_HW, ck.VIEW_HH = VIEW_W // 2, VIEW_H // 2
+        self.draw_world(self.view, g)
+
+    def hud(self, g, ms=None):
+        """Overlay in the view, the LED border, then the dashboard; leaves the clip off."""
+        s = self.screen
+        s.clip = self.rect(0, 0, VIEW_W, VIEW_H)
         draw_view_overlay(self.view, g, ms)
+        if self.ring is not None:
+            draw_led_border(self.view, self.ring())
         s.clip = self.rect(0, VIEW_H, SCREEN_W, DASH_H)
         draw_dashboard(self.dash, g)
         s.clip = self.rect(0, 0, SCREEN_W, SCREEN_H)
+
+    def draw(self, g, ms=None):
+        self.world(g)
+        self.hud(g, ms)

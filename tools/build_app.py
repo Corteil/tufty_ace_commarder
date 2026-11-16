@@ -26,9 +26,9 @@ def build(dest=DEST, patches=PATCHES):
     for name in sorted(os.listdir(SRC)):
         if name.endswith(".py") and os.path.isfile(os.path.join(SRC, name)):
             shutil.copy2(os.path.join(SRC, name), os.path.join(dest, name))
-    tufty = os.path.join(REPO, "apps", "ace_commander")      # Tufty-only modules join the package
+    tufty = os.path.join(REPO, "apps", "ace_commander", "pkg")   # Tufty-only modules join the package
     for name in sorted(os.listdir(tufty)):
-        if name.endswith(".py") and name != "__init__.py":
+        if name.endswith(".py"):
             shutil.copy2(os.path.join(tufty, name), os.path.join(dest, name))
     for name, old, new, count in patches:
         path = os.path.join(dest, name)
@@ -40,6 +40,25 @@ def build(dest=DEST, patches=PATCHES):
     return dest
 
 
+ROOT_FILES = ("__init__.py", "icon.png", "tufty_firmware.py", "platform_tufty.py", "ctx_badgeware.py")
+
+
+def deploy(pkg_dir=DEST, out=os.path.join(REPO, "build", "deploy")):
+    """build/deploy/apps/ace_commander/ = what goes on the badge: the entry files at the top
+    and the game package (called acepkg there) inside."""
+    app = os.path.join(out, "apps", "ace_commander")
+    if os.path.isdir(out):
+        shutil.rmtree(out)
+    os.makedirs(os.path.join(app, "acepkg"))
+    for name in ROOT_FILES:
+        shutil.copy2(os.path.join(REPO, "apps", "ace_commander", name), os.path.join(app, name))
+    for name in sorted(os.listdir(pkg_dir)):
+        if name.endswith(".py"):
+            shutil.copy2(os.path.join(pkg_dir, name), os.path.join(app, "acepkg", name))
+    return app
+
+
 if __name__ == "__main__":
     out = build()
     print("built %s with %d patches" % (out, len(PATCHES)))
+    print("deploy folder: %s" % deploy())

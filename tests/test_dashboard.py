@@ -6,6 +6,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(REPO, "tools"))
 sys.path.insert(0, REPO)
+sys.path.insert(0, os.path.join(REPO, 'apps', 'ace_commander'))
 import build_app
 import scenes
 import sim.badgeware as bw
@@ -18,7 +19,8 @@ for name, a in scenes.frames(os.path.join(REPO, "build"), os.path.join(HERE, "sh
         app = a
         break
 import ace_commander
-from ace_commander import ctx_badgeware, dash_tufty
+import ctx_badgeware
+from ace_commander import dash_tufty
 
 S = bw.screen
 S.pen = bw.color.black
