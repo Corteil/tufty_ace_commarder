@@ -17,6 +17,15 @@ Rule: **nothing in `Corteil/ace_commander` (EMF build) changes until Brian gives
 - Inputs: 5 front buttons (A, B, C, UP, DOWN) + Pad (U D L R A B X Y + -). No joystick, IMU or keyboard, so tilt steering is dropped.
 - Outputs: 4 case lights (`badge.caselights`), 4 Pad LEDs (`set_leds`). Ring LEDs map to these.
 
+## Flight screen layout (decided 2026-11-16): mirror BBC Elite
+Brian's requirement: the game display mirrors the BBC Elite screen as closely as possible, with the **radar (scanner) underneath the space view**.
+- The BBC screen is 4:3 like the Tufty's 320x240, so it scales by an even 1.25.
+- **Space view on top, dashboard underneath.** Working numbers: view 320x180, dashboard 320x60 (BBC 256x144 over 256x48, scaled 1.25; check the original split before fixing). Both are constants, easy to tune.
+- **Scanner (radar) centred in the dashboard**, drawn as the elliptical 3D scanner with blips and stalks, hostile ships in red (as the EMF build). Compass beside it.
+- **Gauges left and right of the scanner** as the BBC dashboard: shields (fore/aft), fuel, cabin and laser temperature, altitude on one side; speed, roll, pitch and the four energy banks on the other; missile indicators.
+- Docked screens, charts and the title use the full 320x240 (BBC-style full-width text screens), not the old 240x240 box.
+- Our own drawing only: the layout follows the original, but no bitmaps, fonts or art copied from it.
+
 ## Architecture
 ```
 tufty_ace_commarder/
@@ -42,11 +51,13 @@ Platform contract (what each host must provide): `Display` (the ctx subset), `In
 4. Licensing check: Elite data stays local and gitignored; confirm the Tufty repo's visibility.
 Done when: the upstream tests pass on a PC inside this repo.
 
-### P1 - Same game in a 240x240 box (needs only code)
-1. `ctx_badgeware.py`: implements the ~20 ctx calls on `screen` (path calls collected and drawn as `shape.line`; rectangle/fill; text; arc). Origin shifts to the screen centre.
-2. `platform_tufty.py`: logical actions from Tufty buttons + Pad; LEDs mapped to case lights and Pad LEDs.
-3. Draw the unchanged 240x240 layout centred; the 40 px side strips stay black for now.
-Done when: sim frames match the Tildagon shots for title, flight, docked screens.
+### P1 - Playable on the sim, in the Elite layout (needs only code)
+1. `ctx_badgeware.py`: implements the ~20 ctx calls on `screen` (path calls collected and drawn as `shape.line`; rectangle/fill; text; arc), with a settable origin and clip rectangle.
+2. **View rectangle.** Parameterise `cockpit.py`: the world is drawn into a view of `VW x VH` centred at `(VX, VY)` instead of the fixed 240x240 centred on 0,0 (about 15 hard-coded 120/240 sites: culling, dust, explosions, tunnel, flash fills).
+3. **New dashboard** (`dash_tufty.py`) replaces `draw_hud` on Tufty: scanner under the view, gauges either side. Built from rectangles and a few lines (rectangles are the cheap call), whole-number maths.
+4. `platform_tufty.py`: logical actions from Tufty buttons + Pad; LEDs mapped to case lights and Pad LEDs.
+5. Other screens use the full 320x240 via a screen-size constant.
+Done when: sim frames for title, flight (with scanner and gauges), launch and docking tunnels, and docked screens look right at 320x240.
 
 ### G1 - First hardware run (when a Tufty and Pad are available)
 Run `apps/ace_test`: resolution/mode, ms per frame, `shape.line` cost, I2C pins, `qwstpad` import, Pad bits, and whether the launcher calls `update()` or runs a loop. Fix P1 assumptions from the results.
@@ -54,8 +65,8 @@ Run `apps/ace_test`: resolution/mode, ms per frame, `shape.line` cost, I2C pins,
 ### P2 - Controls
 Default mapping (change after trying): Pad D-pad pitch/roll; Pad A fire; Pad B missile; Pad X/Y speed up/down; Pad + menu; Pad - bomb; Tufty buttons as spares (back, confirm, view). D-pad is digital, so add ramped turn rate and ease-out. Docked tabs: L/R change tab, U/D move lists, A confirm, B back. Charts: D-pad moves the cursor, Tufty UP/DOWN steps screens. Drop the tilt option.
 
-### P3 - Use the wide screen
-Parameterise the hard-coded 120/240 values (cockpit has about 15 sites) as `W`, `H`. Landscape layout: 3D view in the middle, radar and gauges in the side strips, longer docked text. The Tildagon layout stays selectable.
+### P3 - Polish the Elite look
+Scanner details (ellipse grid, stalks, enemy colours), gauge ticks and colours, compass, missile indicators, text screens spaced for 320 wide. Keep the Tildagon layout selectable for the EMF build later.
 
 ### P4 - Speed on RP2350
 Measure in the real loop, then: whole-number maths in hot loops (already largely done upstream), `@micropython.native/viper` for projection and clipping, batch lines, text caching for static screens, and check GC behaviour with a larger heap. Option: second core for rules, only if profiling says so. Target 20+ fps in the busiest scene (station + planet + 12 ships).
@@ -65,7 +76,7 @@ Keebdeck: needs alternative firmware and soldering for I2C, so it is later and o
 
 ## EMF badge update (only after go-ahead)
 Goal: both badges built from one set of game files. Changes to `Corteil/ace_commander`, in order:
-1. **No behaviour change.** Replace hard-coded 120/240 in `cockpit.py` and friends with `W`/`H` constants (same values), and move Tildagon-only code from `ace.py` into `platform_tildagon.py` behind the platform contract above.
+1. **No behaviour change.** Replace hard-coded 120/240 in `cockpit.py` and friends with a view rectangle and `W`/`H` constants (same values on the Tildagon: 240x240 view, no dashboard strip), and move Tildagon-only code from `ace.py` into `platform_tildagon.py` behind the platform contract above.
 2. Fold in any rule fixes and new tests found while porting.
 3. Re-run the full test suite, compile every file with the badge's own `mpy-cross` (per CLAUDE.md), and have Brian run it on a badge. Say clearly that PC tests don't prove badge behaviour.
 4. Choose the long-term layout (decision for Brian):
@@ -76,6 +87,7 @@ Goal: both badges built from one set of game files. Changes to `Corteil/ace_comm
 
 ## Risks and open questions
 - Qw/ST pin numbers and whether the OS already owns that I2C bus: unknown until G1.
+- 3D view shrinks to 320x180 (was 240x240): check that ships, station and planet still read well, and that the culling constants follow the view.
 - `ctx` shim cost: path-to-line batching might be slow; P4 may replace it with native drawing.
 - Badgeware resolution mode (low-res scaled vs 320x240) changes line quality and speed.
 - Text-heavy docked screens were about 100 ms on the Tildagon; check on Tufty.
