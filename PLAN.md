@@ -66,7 +66,7 @@ Run `apps/ace_test`: resolution/mode, ms per frame, `shape.line` cost, I2C pins,
 Default mapping (change after trying): Pad D-pad pitch/roll; Pad A fire; Pad B missile; Pad X/Y speed up/down; Pad + menu; Pad - bomb; Tufty buttons as spares (back, confirm, view). D-pad is digital, so add ramped turn rate and ease-out. Docked tabs: L/R change tab, U/D move lists, A confirm, B back. Charts: D-pad moves the cursor, Tufty UP/DOWN steps screens. Drop the tilt option.
 
 ### P3 - Polish the Elite look
-Scanner details (ellipse grid, stalks, enemy colours), gauge ticks and colours, compass, missile indicators, text screens spaced for 320 wide. Keep the Tildagon layout selectable for the EMF build later.
+Scanner details (ellipse grid, stalks, enemy colours), gauge ticks and colours, compass, missile indicators, text screens spaced for 320 wide. The Tildagon layout is not touched (see the EMF section).
 
 ### P4 - Speed on RP2350
 Measure in the real loop, then: whole-number maths in hot loops (already largely done upstream), `@micropython.native/viper` for projection and clipping, batch lines, text caching for static screens, and check GC behaviour with a larger heap. Option: second core for rules, only if profiling says so. Target 20+ fps in the busiest scene (station + planet + 12 ships).
@@ -75,8 +75,9 @@ Measure in the real loop, then: whole-number maths in hot loops (already largely
 Keebdeck: needs alternative firmware and soldering for I2C, so it is later and optional (commander name entry, shortcuts). Multiple Pads for two-player or spare buttons: not planned.
 
 ## EMF badge update (only after go-ahead)
+**The EMF screen layout does not change.** The current 240x240 round-screen design works; the Elite-style layout is Tufty only. Any EMF layout improvement is proposed separately, with before/after shots, and only done if Brian agrees it is better. The layout code is split per platform (`dash_tufty.py` for Tufty; the existing HUD stays the EMF one), so one cannot alter the other.
 Goal: both badges built from one set of game files. Changes to `Corteil/ace_commander`, in order:
-1. **No behaviour change.** Replace hard-coded 120/240 in `cockpit.py` and friends with a view rectangle and `W`/`H` constants (same values on the Tildagon: 240x240 view, no dashboard strip), and move Tildagon-only code from `ace.py` into `platform_tildagon.py` behind the platform contract above.
+1. **No behaviour change.** Replace hard-coded 120/240 in `cockpit.py` and friends with a view rectangle and `W`/`H` constants set to the current values on the Tildagon (240x240 view, existing HUD). Check by rendering the existing test shots before and after: they must be pixel-identical, and move Tildagon-only code from `ace.py` into `platform_tildagon.py` behind the platform contract above.
 2. Fold in any rule fixes and new tests found while porting.
 3. Re-run the full test suite, compile every file with the badge's own `mpy-cross` (per CLAUDE.md), and have Brian run it on a badge. Say clearly that PC tests don't prove badge behaviour.
 4. Choose the long-term layout (decision for Brian):
