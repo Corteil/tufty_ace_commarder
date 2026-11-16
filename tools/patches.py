@@ -42,4 +42,11 @@ PATCHES = [
      1),
     # 6. whole-view fills: tunnel and world backgrounds, sun, planet, and the bomb flash
     ("cockpit.py", VIEW_FILL_OLD, VIEW_FILL_NEW, 5),
+    # 7. stardust: how far sideways it is spread (500 is the Tildagon's; a wider view needs more)
+    ("game.py", "WITCH_DUST = 3 ",
+     "DUST_X = 500            # stardust spreads this far either side (500 fills the 240 wide view)\nWITCH_DUST = 3 ", 1),
+    ("game.py", "[random.randint(-500, 500), random.randint(-500, 500),",
+     "[random.randint(-DUST_X, DUST_X), random.randint(-500, 500),", 2),
+    ("game.py", "p[0] = random.randint(-500, 500)", "p[0] = random.randint(-DUST_X, DUST_X)", 2),
+    ("game.py", "abs(p[0]) > 700", "abs(p[0]) > DUST_X * 7 // 5", 1),
 ]

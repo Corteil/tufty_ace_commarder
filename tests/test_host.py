@@ -69,10 +69,19 @@ shot("docked")
 # 2. launch with the Pad's + (-> the game's A = launch from Status)
 tap(["+"])
 assert app.mode == "launch", app.mode
+tunnel_seen = False
 for _ in range(200):
     step(1, ms=100)
+    if app.mode == "launch" and app.launch_t > 1.0 and not tunnel_seen:
+        tunnel_seen = True
+        im = bw.screen.image
+        lit = [x for x in range(320) if any(im.getpixel((x, y)) != (0, 0, 0) for y in range(0, 240, 2))]
+        assert lit and lit[0] < 40, "launch tunnel is not using the full 320 width"
+        assert all(im.getpixel((x, 12)) == (0, 0, 0) for x in range(100, 220)), "docked screen left behind the tunnel"
+        shot("launch")
     if app.mode == "flight":
         break
+assert tunnel_seen
 assert app.mode == "flight", app.mode
 g = app.game
 g.spawn_t = g.rock_t = 1e9
@@ -114,6 +123,15 @@ shot("flight_hit")
 g.flash = 0.0
 step(8)
 assert max(max(c) for c in fw.leds.ring()) < 255
+
+# stardust spreads across the whole 320 wide view
+g.jumping = True
+xs = []
+for _ in range(60):
+    step(1)
+    xs += [int(p[0]) * 208 // max(1, int(p[2])) for p in g.dust if p[2] > 30]
+g.jumping = False
+assert max(xs) > 120 and min(xs) < -120, (min(xs), max(xs))
 
 # 5. the E lamp lights while the ECM is going; the S lamp follows the safe zone
 from ace_commander import dash_tufty as dash

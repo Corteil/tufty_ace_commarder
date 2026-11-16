@@ -31,7 +31,7 @@ class Host:
     def __init__(self, screen, badge, color, shape, rect, buttons, pad=None, pkg=PKG):
         """buttons: {"A": BUTTON_A, "B": ..., "C": ..., "UP": ..., "DOWN": ...} (the badge's
         constants). pad: a qwstpad.QwSTPad or None."""
-        self.screen, self.badge, self.pad = screen, badge, pad
+        self.screen, self.badge, self.pad, self.rect, self.color = screen, badge, pad, rect, color
         self.buttons = buttons
         fw.install()                                  # before the game package is imported
         ace = __import__(pkg + ".ace", None, None, ("x",))
@@ -46,6 +46,11 @@ class Host:
         # the game draws the flight view with cockpit.draw_world and draw_hud: swap in ours
         ck.draw_world = self._world
         ck.draw_hud = self._hud
+        self._tunnel = ck.draw_tunnel                  # launch and docking: the whole screen
+        ck.draw_tunnel = self._draw_tunnel
+        # the view is 320 wide, so spread the stardust a third wider (500 -> 667)
+        game = __import__(pkg + ".game", None, None, ("x",))
+        game.DUST_X = 500 * dash.VIEW_W // 240
         self.app = ace.AceCommander()
         self.down = set()
         self.last_level = -1.0
@@ -55,6 +60,12 @@ class Host:
     # drawing -------------------------------------------------------------------------------
     def _world(self, ctx, g):
         self.ff.world(g)
+
+    def _draw_tunnel(self, ctx, *args):
+        ck = self.ck
+        ck.VIEW_HW, ck.VIEW_HH = self.centre             # fills 320 x 240
+        self.screen.clip = self.rect(0, 0, 2 * self.centre[0], 2 * self.centre[1])
+        self._tunnel(ctx, *args)
 
     def _hud(self, ctx, g, ms=None, ring=True):
         self.ff.hud(g, ms)
@@ -106,6 +117,9 @@ class Host:
         self.poll()
         self.app.update(ms)
         self.ctx.ox, self.ctx.oy = self.centre
+        self.screen.clip = self.rect(0, 0, 2 * self.centre[0], 2 * self.centre[1])
+        self.screen.pen = self.color.rgb(0, 0, 0)       # start every frame black, whatever
+        self.screen.clear()                             # update() does with the old one
         self.app.draw(self.ctx)
         self.leds_out()
         self.badge.update()                     # shows the frame, clears, reads the buttons
