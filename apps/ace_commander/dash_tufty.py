@@ -6,8 +6,8 @@
     |                                      |
     +--------------------------------------+
     | SH ====   [2x2]  .--scanner--.  O  SP ====|   dashboard 320 x 60: bars either side
-    | EN ====   missiles  '-------'  compass CT ====|   (SH EN FU LT | SP CT AL), missiles,
-    | FU ====                              AL ====|   elliptical scanner, compass
+    | EN ====   missiles  '-------'  compass CT ====|   (SH EN FU LT | SP CT AL), missile column,
+    | FU ====                              AL ====|   elliptical scanner, compass, S lamp
     | LT ====                                     |
     +--------------------------------------+
 
@@ -34,7 +34,8 @@ LEFT = (-157, -141, 48)
 RIGHT = (94, 110, 48)
 ROW0, ROW_STEP, BAR_H = -20, 12, 7
 COMPASS_X, COMPASS_Y, COMPASS_R = 78, 4, 9
-MISSILE_X, MISSILE_Y = -84, -7
+MISSILE_X, MISSILE_Y, MISSILE_STEP = -80, -16, 9      # a column of four lamps, between the left bars and the scanner
+S_X, S_Y = 78, -19                                      # the S lamp (safe zone), above the compass
 
 PANEL = (0.04, 0.04, 0.07)
 RULE = (0.38, 0.38, 0.48)
@@ -148,6 +149,14 @@ def altitude(g):
     return (0.0 if f < 0 else 1.0 if f > 1 else f), rgb
 
 
+def _lamp(ctx, x, y, letter, on, rgb):
+    """A square indicator lamp centred on (x, y): dim outline when off, filled with the letter
+    cut out in black when on. Elite's S lamp lights inside the station's safe zone."""
+    ctx.rgb(*(rgb if on else ck.DIM)).rectangle(x - 6, y - 6, 12, 12).fill()
+    ctx.rgb(*PANEL).rectangle(x - 5, y - 5, 10, 10).fill() if not on else None
+    ck.text(ctx, letter, x, y, 9, PANEL if on else ck.DIM)
+
+
 def draw_dashboard(ctx, g):
     """ctx origin at the dashboard's centre; the dashboard fills 320 x 60 about it."""
     ctx.rgb(*PANEL).rectangle(-SCREEN_W // 2, -DASH_H // 2, SCREEN_W, DASH_H).fill()
@@ -161,9 +170,11 @@ def draw_dashboard(ctx, g):
     _bar(ctx, RIGHT, 1, "CT", (g.cabin - ck.COOL_CABIN) / (255.0 - ck.COOL_CABIN), ck.ct_colour(g.cabin))
     frac, rgb = altitude(g)
     _bar(ctx, RIGHT, 2, "AL", frac, rgb)
-    for i in range(4):               # missiles, 2 x 2
+    for i in range(4):               # missiles, a column, the top lamp first
         ctx.rgb(*(ck.GREEN if i < g.missiles else ck.DIM))
-        ctx.rectangle(MISSILE_X + (i % 2) * 8, MISSILE_Y + (i // 2) * 8, 6, 6).fill()
+        ctx.rectangle(MISSILE_X, MISSILE_Y + i * MISSILE_STEP, 6, 6).fill()
+    sp = g.space
+    _lamp(ctx, S_X, S_Y, "S", sp is not None and sp.safe, ck.GREEN)
     _scanner(ctx, g)
 
 

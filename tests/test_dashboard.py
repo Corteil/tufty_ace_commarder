@@ -55,5 +55,18 @@ f, rgb = dash_tufty.altitude(fake(1e9, cabin=ck.COOL_CABIN + 50, sd=300.0 + 300.
 assert rgb == ck.ORANGE and abs(f - 0.5) < 1e-6, (f, rgb)                # warming: height above the sun
 assert dash_tufty.altitude(types.SimpleNamespace(space=None, cabin=30)) == (0.0, ck.DIM)
 assert dash_tufty.altitude(fake(300.0, witch=True))[1] == ck.DIM
+# missiles: a column of four lamps (three lit of four here), and the S lamp follows the safe zone
+def col(x, y):
+    return img.getpixel((160 + x, 210 + y))[:3]
+lamps = [col(dash_tufty.MISSILE_X + 3, dash_tufty.MISSILE_Y + i * dash_tufty.MISSILE_STEP + 3) for i in range(4)]
+green = tuple(int(v * 255 + 0.5) for v in ck.GREEN)
+assert [l == green for l in lamps] == [True, True, True, False], lamps
+def s_lamp(safe):
+    g.space.safe = safe
+    ff.draw(g, 41)
+    return col(dash_tufty.S_X - 5, dash_tufty.S_Y - 5)       # the lamp's top-left corner pixel
+assert g.space is not None
+on, off = s_lamp(True), s_lamp(False)
+assert on == green and off != green, (on, off)
 print("flight frame 320x240 written; view %d lit, dashboard %d lit" % (lit(0, 0, 320, 180), lit(0, 180, 320, 240)))
 print("ALL DASHBOARD TESTS PASSED")
