@@ -66,6 +66,13 @@ Brian's Pi setup was not recorded in this repo; check rather than assume.
 4. Commit small and often; keep `python tests/run_all.py` green.
 5. Only when Brian asks: the EMF refactor path in PLAN.md (applies the same patches to `ace_commander`).
 
+## Update 2026-11-18
+Upstream is at v0.3.0 and Hardcore Mode is merged into its main; see "Update 2026-11-18" in
+PLAN.md for what a sync brings and the revised next actions (sync, `scenes.py` launches with A,
+dashboard follows the ship's speed / pylons / tank, a `TextDialog` stand-in, side-view stardust).
+**2026-11-19: one repo decided.** The Pi host is in `ace_commander/hosts/pi/`; this port moves to
+`ace_commander/hosts/tufty/` after its first hardware run (G1). Until then, keep working here.
+
 ## Hardcore Mode (Brian's plan PDF, 2026-11-16)
 Brian approved a feature branch `hardcore-mode` on `Corteil/ace_commander` (pushed, not merged; main untouched).
 First slice there: platform-free `rules.py`, manual ECM, armed missiles, HARDCORE setting, tests. Details in that
