@@ -46,3 +46,29 @@ Run it from the launcher. Check in this order and note the first thing that fail
 | Wrong buttons | `TUFTY_MAP`, `PAD_MAP` in `platform_tufty.py` |
 
 Send back what happened at each unchecked step and I'll fix the code against the real behaviour.
+
+## Results, 2026-11-19 (Brian's Tufty, serial cf39515354ec6c00, on the Pi)
+**Firmware:** it came with Badgeware v2.0.1 (bw-1.27.0, 2026-02-26), on which the probe stopped at
+`font.smart` (v2 had only `font.load` and files in `/rom/fonts`). Updated (Brian asked) to **v3.1.1
+with-filesystem** (bw-1.29.0, 2026-09-23) from github.com/pimoroni/tufty2350 (checksum checked;
+`machine.bootloader()` then the UF2 on the RP2350 drive). Both `secrets.py` kept; backup in
+`~/Code/tufty_backup_2026-11-19/`. v3 changed the API ("your custom apps will break"): fonts,
+`screen.text`, alpha on the destination; an app ends with `run(update)` and the launcher calls
+`update()` each frame (no `badge.update()` in it); `badge.mode(HIRES)` for 320x240.
+
+Section 1 (probe), all on v3.1.1:
+- [x] resolution: **320x240** with `badge.mode(HIRES)` (160x120 without)
+- [x] frame time: **14 ms raster lines, 15 ms vector lines** (cube + text): vector (anti-aliased) is fine
+- [x] I2C0 on GP4 / GP5: **0x21** (Qw/ST Pad) and 0x51; GP4 / GP5 were right
+- [x] `import qwstpad`: **yes**, in the firmware; `QwSTPad(i2c, 0x21).read_buttons()` lists pressed buttons
+- [x] Pad raw bits: idle `0000011110000000`, change when pressed
+- [x] loop mode: `run(update)` (v3)
+- Found: `screen.clear()` after `screen.pen = color.black` gave a **blue** background: check v3's clear
+  / pen before porting the game's drawing (the game needs black).
+- Careful: **BUTTON_A is GPIO7**; opening I2C on GP6 / GP7 dropped the Tufty off USB (RESET fixed it).
+- Files: `/system` is read-only from MicroPython; apps are copied onto the TUFTY drive (double-tap
+  RESET or the Mass Storage app), which the Pi mounts at `/media/pi/TUFTY` (`apps/<name>/`).
+
+Next: section 2 needs the port brought to v3 (`ctx_badgeware.py`, `platform_tufty.py` loop as
+`run(update)`, the sim updated to v3) and synced with the game (see ace_commander
+`hosts/NEXT_SESSION.md`, part A).

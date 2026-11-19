@@ -15,7 +15,21 @@ use_raster = True
 I2C_ID, SDA_PIN, SCL_PIN = 0, 4, 5
 TCA_REG_INPUT0 = 0x00  # TCA9555 input port 0 (port 1 follows)
 
-screen.font = font.smart
+# Badgeware v3: 320 x 240 (HIRES), as the game wants; v2 had no badge.mode
+try:
+    badge.mode(HIRES)
+except Exception:
+    pass
+
+# Badgeware v3 (bw-1.29.0) has font.smart; v2 (bw-1.27.0) had only files in /rom/fonts,
+# loaded with font.load. Keep the default pixel font if neither works.
+try:
+    screen.font = font.smart
+except Exception:
+    try:
+        screen.font = font.load("/rom/fonts/smart.ppf")
+    except Exception:
+        pass
 
 VERTS = [(-1, -1, -1), (1, -1, -1), (1, 1, -1), (-1, 1, -1),
          (-1, -1, 1), (1, -1, 1), (1, 1, 1), (-1, 1, 1)]
@@ -89,6 +103,8 @@ def update():
     ms = time.ticks_diff(now, last)
     last = now
     w, h = screen.width, screen.height
+    screen.pen = color.black
+    screen.clear()
 
     draw_cube(now / 1000.0, w * 0.72, h * 0.5, h * 0.8)
 
@@ -125,9 +141,17 @@ def update():
     pressed = badge.held()
     if pressed:
         screen.text("held %s" % pressed, 2, h - 26)
-    badge.update()
 
 
-if LOOP_MODE:
+# Badgeware v3: an app ends with run(update) and the launcher calls update() every frame.
+# v2 had no run(): LOOP_MODE ran the loop here, showing each frame with badge.update().
+try:
+    run
+except NameError:
+    run = None
+if run is not None:
+    run(update)
+elif LOOP_MODE:
     while True:
         update()
+        badge.update()
