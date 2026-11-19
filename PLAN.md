@@ -1,7 +1,55 @@
 # Plan: Ace Commander on Tufty 2350 (and the later EMF badge update)
 
-Status: P0 done 2026-11-16 (see Progress). Draft 1 written the same day. No Tufty or Pad in hand yet, so everything up to gate G1 is built and checked on a PC.
+Status: P0 and P1 done on the PC 2026-11-16 (see Progress). **Updated 2026-11-18** for upstream v0.3.0 (see the next section). No Tufty or Pad run yet, so G1 is still the next hardware step.
 Rule: **nothing in `Corteil/ace_commander` (EMF build) changes until Brian gives the go-ahead.** It is only read.
+
+## Update 2026-11-18: upstream is now v0.3.0
+`vendor/` is still the build-59 snapshot (22db6ef, 2026-11-15). Upstream has since released
+v0.2.0 (builds 60-75) and v0.3.0 (builds 76-90, main at 8c8a37c / merge df89e06), and the
+Hardcore Mode branch is merged, so the "don't sync from the branch" rule no longer applies.
+
+**Trial sync (scratch copy, nothing committed):** `sync_from_ace.py` takes 69 files; all 11
+patches in `tools/patches.py` still apply; `test_sim` and **`test_host` pass (the real v0.3.0
+game runs title -> new commander -> docked -> launch -> flight on the Tufty stand-ins)**. Four
+render tests fail:
+- `test_patch_identity`, `test_view_rect`, `test_dashboard`: `tests/scenes.py` launches with C
+  on Status; since build 77 **A launches** (C opens Options). One-line fix (`fresh=["A"]`).
+- `test_ctx_shim`: the launch tunnel's coverage is 0.796 against the 0.90 bar (title and flight
+  still agree). Look at the frame side by side before changing the bar: the tunnel now shows
+  your own ship model (build 40) and the slot shapes changed (build 29); possibly a shim gap.
+
+**What changed upstream and what it means here** (most of it is rules and needs nothing):
+| Upstream (build) | Tufty impact |
+|---|---|
+| Buttons: A launches, C on Status opens Options; tabs Status, Inventory, Market, Equip ship, Shipyard, Hangar, charts; Repair Shop and ship stats are sub-screens; Inventory C sells all (70-82) | `PAD_MAP` still right (Pad + = A); fix `scenes.py`; check the new screens on the centred 240 layout |
+| Old-firmware fallback removed (current firmware only): `events.joystick` and `frontboards.common` are required | already provided by `tufty_firmware.py` |
+| Ship types (78-84): `Game.max_speed`, `max_missiles` (0-5 pylons), `fuel_max` (0-100, 0 = no hyperdrive), `turn_k`, `tough` | **`dash_tufty` must follow them**: SP bar against `g.max_speed` (not 40), missile lamps = `g.max_missiles` (a column of up to 5, none on the Worm/Shuttle), FU bar against `g.fuel_max` and blank when 0 (now `ck.MAX_FUEL`) |
+| Four views and per-view stardust (60, 76) | `game.view_dust` uses its own +-500 / `DUST_MID` numbers, not patch 7's `DUST_X`: side and rear views won't fill 320 wide. New patch, or move the numbers into `DUST_X` upstream |
+| Hardcore Mode (manual ECM: E+F together; armed missiles) | Pad X+Y together = ECM; check the Pad sends both in one frame |
+| Keyboard keys (`k_*`) and text entry: Galactic chart search on B (88), commander NAME (89) | Tufty has no keyboard: the game falls back to its keyboard page, which a Pad can't type into. **Provide `app_components.dialog.TextDialog` in `tufty_firmware.py`**: a D-pad letter grid with the firmware's interface (`text`, `message`, `_result`, `_keys`, `masked`, `draw`); the game draws it with `find.small_dialog`. Register it to the host (upstream lesson, build 89: the real firmware only gives buttons to the focused app) |
+| CONTROLS setting (87): flips flight pitch / roll; tilt gone on Tufty | nothing (the setting works on the D-pad) |
+| Escape pods, stolen ships, police spotting, Elite weapon ranges (78-86) | rules only |
+| LEDs: laser colours, ECM violet, jump flashes per view (60-76) | the LED border shows them; check the colours read on the border |
+| Saves: commander version 5 (ship, hangar, name) | `commander.json` in the app folder: writability still unknown (G1) |
+
+**Revised next actions**
+1. Sync to v0.3.0 (`tools/sync_from_ace.py ~/Code/ace_commander` at main), fix `scenes.py`,
+   look at the tunnel frame, keep the tests green.
+2. `dash_tufty`: SP / missiles / FU from the ship (table above); a fifth missile lamp.
+3. `TextDialog` stand-in for search and the name (D-pad letter grid).
+4. `view_dust` width for the side views (patch, or upstream).
+5. G1 on hardware (`G1_CHECKLIST.md`, unchanged).
+6. **Repo layout: decided 2026-11-19 (Brian): A, one repo.** `Corteil/ace_commander` now has
+   `hosts/` (left out of the badge's app store tarball) with the Raspberry Pi host in
+   `hosts/pi/` (P0 merged, PR #23: the unchanged game on firmware stand-ins, as this repo's
+   `tufty_firmware.py` does). **This port moves to `ace_commander/hosts/tufty/` after G1**: its
+   stand-ins, shim, dashboard and build patches go there, the patches becoming real settings
+   in the core (view size, `DUST_X`), and this repo is archived or kept as a pointer.
+7. Since v0.3.0 (main at ac80435): build 91 fits eight Options lines on the round screen
+   (docked and title pages; centred 240 layout here too), and build 92 makes the missile
+   sights red only for a dangerous ship, white for a low-risk one, with one rule
+   `cockpit.hostile(o)` shared with the radar. **`dash_tufty`'s scanner should call
+   `cockpit.hostile`** rather than its own test, so the two badges colour ships alike.
 
 ## Progress
 - **P0 done.** `tools/sync_from_ace.py` + `vendor/ace_commander/` (pinned in `vendor/UPSTREAM`, 57 tracked files, no Elite data). `sim/badgeware.py` is a PC fake of the documented Badgeware API; `tests/test_sim.py` checks it. `apps/ace_test` runs on the sim.
